@@ -181,15 +181,22 @@ class Subversion(object):
 
     def get_revision(self):
         '''Revision and URL of subversion working directory.'''
-        text = '\n'.join(self._exec(["info", self.dest]))
-        rev = re.search(r'^Revision:.*$', text, re.MULTILINE).group(0)
-        url = re.search(r'^URL:.*$', text, re.MULTILINE).group(0)
+#        text = '\n'.join(self._exec(["info", self.dest]))
+#        rev = re.search(r'^Revision:.*$', text, re.MULTILINE).group(0)
+#        url = re.search(r'^URL:.*$', text, re.MULTILINE).group(0)
+
+        text = '\n'.join(self._exec(["info", "--xml", self.dest]))
+        rev = int(re.search(r'<entry.*revision="([0-9]+)">', text, re.DOTALL).group(1))
+        url = re.search(r'<url>([^<]+)</url>', text).group(1)
         return rev, url
 
     def get_remote_revision(self):
         '''Revision and URL of subversion working directory.'''
-        text = '\n'.join(self._exec(["info", self.repo]))
-        rev = re.search(r'^Revision:.*$', text, re.MULTILINE).group(0)
+#        text = '\n'.join(self._exec(["info", self.repo]))
+#        rev = re.search(r'^Revision:.*$', text, re.MULTILINE).group(0)
+
+        text = '\n'.join(self._exec(["info", "--xml", self.repo]))
+        rev = int(re.search(r'<entry.*revision="([0-9]+)">', text, re.DOTALL).group(1))
         return rev
 
     def has_local_mods(self):
@@ -202,15 +209,23 @@ class Subversion(object):
         return len(list(filter(regex.match, lines))) > 0
 
     def needs_update(self):
-        curr, url = self.get_revision()
-        out2 = '\n'.join(self._exec(["info", "-r", "HEAD", self.dest]))
-        head = re.search(r'^Revision:.*$', out2, re.MULTILINE).group(0)
-        rev1 = int(curr.split(':')[1].strip())
-        rev2 = int(head.split(':')[1].strip())
+#        curr, url = self.get_revision()
+#        out2 = '\n'.join(self._exec(["info", "-r", "HEAD", self.dest]))
+#        head = re.search(r'^Revision:.*$', out2, re.MULTILINE).group(0)
+#        rev1 = int(curr.split(':')[1].strip())
+#        rev2 = int(head.split(':')[1].strip())
+#        change = False
+#        if rev1 < rev2:
+#            change = True
+#        return change, curr, head
+
+        rev1, url = self.get_revision()
+        text = '\n'.join(self._exec(["info", "--xml", "-r", self.revision, self.dest]))
+        rev2 = int(re.search(r'<entry.*revision="([0-9]+)">', text, re.DOTALL).group(1))
         change = False
-        if rev1 < rev2:
+        if rev1 != rev2:
             change = True
-        return change, curr, head
+        return change, rev1, rev2
 
 
 # ===========================================
@@ -247,7 +262,7 @@ def main():
 
     # We screenscrape a huge amount of svn commands so use C locale anytime we
     # call run_command()
-    module.run_command_environ_update = dict(LANG='C', LC_MESSAGES='C')
+#    module.run_command_environ_update = dict(LANG='C', LC_MESSAGES='C')
 
     if not dest and (checkout or update or export):
         module.fail_json(msg="the destination directory must be specified unless checkout=no, update=no, and export=no")
